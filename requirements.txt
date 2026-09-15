@@ -1,0 +1,4 @@
+# Runtime dependencies for barrier_TR.py
+# Lower bounds are conservative; any recent release works.
+numpy>=1.20
+matplotlib>=3.5
