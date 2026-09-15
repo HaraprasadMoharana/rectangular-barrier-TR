@@ -7,6 +7,8 @@ family of dimensionless **barrier strength** parameters.
 A single self-contained Python script. No configuration files, no data files,
 no build step.
 
+![Transmission and reflection versus reduced energy](figures/fig1_T_R_vs_energy.png)
+
 ---
 
 ## The problem
@@ -61,17 +63,17 @@ rather than over $U_0$ and $L$ separately.
 **Tunnelling, $\varepsilon < 1$** — the wave is evanescent inside the barrier,
 $\kappa L = \gamma\sqrt{1-\varepsilon}$:
 
-$$T(\varepsilon) = \left[1 + \frac{\sinh^2\!\left(\gamma\sqrt{1-\varepsilon}\right)}{4\varepsilon(1-\varepsilon)}\right]^{-1}$$
+$$T(\varepsilon) = \left[1 + \frac{\sinh^2\left(\gamma\sqrt{1-\varepsilon}\right)}{4\varepsilon(1-\varepsilon)}\right]^{-1}$$
 
 Classically $T$ would be zero here. For a thick barrier this reduces to the
 familiar exponential law
 
-$$T \simeq 16\,\varepsilon(1-\varepsilon)\,e^{-2\gamma\sqrt{1-\varepsilon}}$$
+$$T \simeq 16\varepsilon(1-\varepsilon)e^{-2\gamma\sqrt{1-\varepsilon}}$$
 
 **Over-barrier, $\varepsilon > 1$** — the wave propagates inside,
 $k'L = \gamma\sqrt{\varepsilon-1}$:
 
-$$T(\varepsilon) = \left[1 + \frac{\sin^2\!\left(\gamma\sqrt{\varepsilon-1}\right)}{4\varepsilon(\varepsilon-1)}\right]^{-1}$$
+$$T(\varepsilon) = \left[1 + \frac{\sin^2\left(\gamma\sqrt{\varepsilon-1}\right)}{4\varepsilon(\varepsilon-1)}\right]^{-1}$$
 
 Classically $T$ would be one here. It is not: the particle can be reflected by
 a downward step.
@@ -99,6 +101,68 @@ resonance. Larger $\gamma$ packs more resonances into a given energy window.
 
 ---
 
+## Results
+
+Both figures are produced by `barrier_TR.py` and committed under `figures/`.
+
+### Transmission and reflection versus energy
+
+The figure at the top of this README fixes the barrier ($\gamma = 5$) and sweeps the
+energy. $T$ and $R$ share one axes, so three things are visible at once:
+
+- They cross at $T = R = \tfrac{1}{2}$, and sum to 1 at every energy.
+- In the shaded strip $\varepsilon < 1$, $T$ is small but **not zero** — the tunnelling
+  that classical mechanics forbids outright.
+- Above the barrier top $T$ does not saturate at 1; it oscillates, and $R$ stays
+  visibly nonzero. Open circles mark the resonances
+  $\varepsilon_n = 1 + (n\pi/\gamma)^2$ where $T$ returns to exactly 1.
+
+At the barrier top the closed form collapses to $T(1) = (1 + \gamma^2/4)^{-1}$:
+
+| $\gamma$ | 1 | 2 | 5 | 10 | 20 |
+|---|---|---|---|---|---|
+| $T(\varepsilon = 1)$ | 0.800 | 0.500 | 0.1379 | 0.03846 | 0.00990 |
+
+### Transmission and reflection versus barrier thickness
+
+![Transmission and reflection versus barrier thickness](figures/fig2_T_R_vs_thickness.png)
+
+The perpendicular cut: energy fixed at $\varepsilon = 1.5$, barrier thickness sweeping.
+Now $T$ starts at **1** and dips, returning to 1 at every $k'L = n\pi$ — an integer
+number of half wavelengths fits inside, the reflections off the two edges cancel,
+and the barrier goes transparent. This is the anti-reflection coating condition,
+and it is far easier to read here than on the energy axis.
+
+### Why the two figures run opposite ways
+
+They look inverted, and that is expected — the abscissas point in opposite physical
+directions:
+
+| | swept quantity | $T$ at the left edge | reason |
+|---|---|---|---|
+| versus energy | $\varepsilon = E/U_0$ | $T \to 0$ | a particle with no energy gets through nothing |
+| versus thickness | $k'L$ | $T \to 1$ | a barrier with no width blocks nothing |
+
+Both come from the same closed form. `transmission_vs_thickness(u, eps)` and
+`transmission(eps, gamma)` agree to 12 decimal places wherever
+$u = \gamma\sqrt{|1-\varepsilon|}$ makes them describe the same barrier — they are two cuts
+through one surface $T(\varepsilon, \gamma)$, not two different results.
+
+### Numerical check
+
+The script reports the unitarity residual on every run. Across all five $\gamma$
+values on a 6001-point grid:
+
+```
+unitarity check:  max |T + R - 1|  =  2.220e-16
+```
+
+That is one unit in the last place of a float64. $T$ and $R$ are each evaluated from
+their own closed form, never as $1 -$ the other, so the agreement is a real check
+rather than an identity by construction.
+
+---
+
 ## Symbols
 
 | Symbol | Meaning | Units |
@@ -122,8 +186,8 @@ resonance. Larger $\gamma$ packs more resonances into a given energy window.
 ## Usage
 
 ```bash
-git clone https://github.com/<your-username>/<your-repo>.git
-cd <your-repo>
+git clone https://github.com/HaraprasadMoharana/rectangular-barrier-TR.git
+cd rectangular-barrier-TR
 pip install -r requirements.txt
 python barrier_TR.py
 ```
@@ -135,10 +199,13 @@ $\max|T + R - 1|$, and writes the figures.
 
 | File | Contents |
 |---|---|
-| `barrier_TR_vs_eps.png` / `.pdf` | panel (a) $T(\varepsilon)$ with resonances marked, panel (b) $R(\varepsilon)$ |
+| `barrier_TR_overlaid.png` / `.pdf` | $T$ and $R$ overlaid against energy for one $\gamma$ — the first figure above |
+| `barrier_TR_thickness.png` / `.pdf` | $T$ and $R$ against barrier thickness at fixed energy — the second figure above |
+| `barrier_TR_vs_eps.png` / `.pdf` | two-panel $T(\varepsilon)$ and $R(\varepsilon)$ across the full $\gamma$ family |
 | `barrier_TR_log.png` / `.pdf` | $T$ on a log axis over the tunnelling region, exposing the $e^{-2\gamma\sqrt{1-\varepsilon}}$ law |
 
-Generated figures are gitignored. Run the script to produce them.
+Running the script writes these four files next to it. They are build output, not
+source — the committed copies under `figures/` are what this README displays.
 
 ### Configuration
 
@@ -149,6 +216,8 @@ Edit the `CONFIG` block at the top of `barrier_TR.py`:
 | `GAMMA_LIST` | barrier strength values to overlay |
 | `EPS_MIN`, `EPS_MAX`, `N_EPS` | energy grid |
 | `LOG_PANEL` | produce the log-scale tunnelling figure |
+| `OVERLAY`, `GAMMA_SHOW` | produce the overlaid $T$/$R$ figure, and at which $\gamma$ |
+| `THICKNESS`, `EPS_FIXED` | produce the thickness figure, and at which $\varepsilon > 1$ |
 | `MARK_RES` | mark over-barrier resonances |
 | `SHOW_DEFS` | print the symbol table on run |
 | `SAVE`, `OUTSTEM`, `DPI` | figure output |

@@ -205,11 +205,19 @@ EPS_MAX    = 4.0                           # highest reduced energy (E = 4 U0)
 N_EPS      = 6001                          # number of energy grid points
 
 LOG_PANEL  = True        # also produce a log-scale T plot of the tunnelling region
+OVERLAY    = True        # T and R overlaid on one axes, single gamma
+THICKNESS  = True        # T and R against barrier thickness at fixed energy
 MARK_RES   = True        # mark the over-barrier resonances on panel (a)
+
+GAMMA_SHOW = 5.0         # gamma used by the overlaid figure
+EPS_FIXED  = 1.5         # reduced energy used by the thickness figure (eps > 1)
 SHOW_DEFS  = True        # print the symbol table when the script is run
 SAVE       = True        # write PNG + PDF next to the script
 OUTSTEM    = "barrier_TR"
 DPI        = 600
+
+C_T = "#1f6feb"          # colour for T in the overlaid figures
+C_R = "#e8710a"          # colour for R in the overlaid figures
 
 X_ASYMP    = 30.0        # kappa*L beyond which the asymptotic sinh form is used
 TOL_EPS1   = 1.0e-13     # half-width of the eps = 1 special-case window
@@ -488,7 +496,127 @@ def make_log_figure(gammas):
     ax.set_xlim(0.0, 1.0)
     ax.set_xlabel(r"Reduced energy  $\varepsilon = E/U_0$")
     ax.set_ylabel(r"Transmission  $T$")
-    ax.legend(loc="upper left")
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    return fig
+
+
+def transmission_vs_thickness(u, eps: float) -> np.ndarray:
+    """
+    Transmission as a function of barrier THICKNESS at fixed reduced energy.
+
+    This is the perpendicular cut through the same closed form used by
+    transmission(): there the barrier is fixed and the energy sweeps, here the
+    energy is fixed and the barrier grows. The two run in opposite directions --
+    a thicker barrier transmits less, a faster particle transmits more -- so the
+    curves look inverted even though the physics is identical.
+
+    Parameters
+    ----------
+    u : array_like
+        Dimensionless barrier thickness. For eps > 1 this is k'L; for eps < 1
+        it is kappa*L. In both cases u = gamma*sqrt(|1 - eps|).
+    eps : float
+        Fixed reduced energy E/U0.
+
+    Returns
+    -------
+    ndarray
+        T in [0, 1], same shape as u. At u = 0 (no barrier) T = 1 exactly.
+    """
+    u = np.atleast_1d(np.asarray(u, dtype=float))
+    if eps > 1.0:
+        D = 4.0 * eps * (eps - 1.0)
+        return D / (D + np.sin(u) ** 2)
+    if eps < 1.0:
+        D = 4.0 * eps * (1.0 - eps)
+        return D / (D + np.sinh(np.clip(u, 0.0, X_ASYMP)) ** 2)
+    return 1.0 / (1.0 + 0.25 * u ** 2)          # eps = 1 limit
+
+
+def _strip(ax) -> None:
+    """Drop the top and right spines and their ticks."""
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.tick_params(which="both", top=False, right=False)
+
+
+def make_overlaid_figure(gamma: float = GAMMA_SHOW):
+    """
+    T and R for a single gamma, overlaid on one axes against reduced energy.
+
+    The two-panel figure separates T and R; this one puts them together so the
+    crossing at T = R = 1/2 and the unitarity constraint T + R = 1 are visible
+    directly. The shaded strip is the classically forbidden region eps < 1.
+    """
+    eps = np.linspace(EPS_MIN, EPS_MAX, N_EPS)
+    T, R = transmission(eps, gamma), reflection(eps, gamma)
+
+    fig, ax = plt.subplots(figsize=(5.4, 3.4))
+    ax.axvspan(0.0, 1.0, color="0.94", zorder=0, lw=0)
+    ax.plot(eps, T, color=C_T, lw=1.9, zorder=3)
+    ax.plot(eps, R, color=C_R, lw=1.9, zorder=3)
+
+    for er in resonance_energies(gamma, EPS_MAX):
+        ax.plot(er, 1.0, marker="o", ms=4, mfc="white", mec=C_T, mew=1.1, zorder=5)
+
+    ax.axvline(1.0, color="0.6", lw=0.8, ls=(0, (4, 3)), zorder=1)
+    ax.text(0.875 * EPS_MAX, 0.84, "$T$", color=C_T, fontsize=13,
+            fontweight="bold", ha="center")
+    ax.text(0.875 * EPS_MAX, 0.13, "$R$", color=C_R, fontsize=13,
+            fontweight="bold", ha="center")
+    ax.text(0.5, 1.05, "tunnelling", ha="center", fontsize=8.5, color="0.4")
+    ax.text(0.5 * (1.0 + EPS_MAX), 1.05, "over-barrier", ha="center",
+            fontsize=8.5, color="0.4")
+
+    ax.set_xlim(0.0, EPS_MAX)
+    ax.set_ylim(-0.02, 1.02)
+    ax.set_xlabel(r"Reduced energy  $\varepsilon = E/U_0$")
+    ax.set_ylabel("Probability")
+    ax.set_title(rf"$\gamma = {gamma:g}$", fontsize=10, pad=18)
+    _strip(ax)
+    fig.tight_layout()
+    return fig
+
+
+def make_thickness_figure(eps0: float = EPS_FIXED, n_periods: int = 4):
+    """
+    T and R against barrier thickness at fixed energy, for eps0 > 1.
+
+    T starts at 1 for a vanishing barrier and dips, returning to 1 at every
+    k'L = n*pi where an integer number of half wavelengths fits inside. This is
+    the Fabry-Perot / anti-reflection condition seen along the thickness axis
+    instead of the energy axis.
+    """
+    if eps0 <= 1.0:
+        raise ValueError("make_thickness_figure expects eps0 > 1 (over-barrier)")
+
+    u = np.linspace(0.0, n_periods * np.pi, 4000)
+    T = transmission_vs_thickness(u, eps0)
+    R = 1.0 - T
+
+    fig, ax = plt.subplots(figsize=(5.4, 3.4))
+    ax.plot(u, T, color=C_T, lw=1.9)
+    ax.plot(u, R, color=C_R, lw=1.9)
+    for n in range(1, n_periods + 1):
+        ax.plot(n * np.pi, 1.0, marker="o", ms=4, mfc="white",
+                mec=C_T, mew=1.1, zorder=5)
+
+    ax.text(np.pi / 2, 0.64, "$T$", color=C_T, fontsize=13,
+            fontweight="bold", ha="center")
+    ax.text(np.pi / 2, 0.36, "$R$", color=C_R, fontsize=13,
+            fontweight="bold", ha="center")
+
+    ax.set_xlim(0.0, n_periods * np.pi)
+    ax.set_ylim(-0.02, 1.02)
+    ax.set_xticks([n * np.pi for n in range(n_periods + 1)])
+    ax.set_xticklabels(["0", r"$\pi$"] +
+                       [rf"${n}\pi$" for n in range(2, n_periods + 1)])
+    ax.set_xlabel(r"Barrier thickness  $k'L$")
+    ax.set_ylabel("Probability")
+    ax.set_title(rf"$\varepsilon = {eps0:g}$   (over-barrier, $E > U_0$)",
+                 fontsize=10, pad=18)
+    _strip(ax)
     fig.tight_layout()
     return fig
 
@@ -519,6 +647,18 @@ def main() -> None:
         if SAVE:
             fig2.savefig(f"{OUTSTEM}_log.png")
             fig2.savefig(f"{OUTSTEM}_log.pdf")
+
+    if OVERLAY:
+        fig3 = make_overlaid_figure(GAMMA_SHOW)
+        if SAVE:
+            fig3.savefig(f"{OUTSTEM}_overlaid.png")
+            fig3.savefig(f"{OUTSTEM}_overlaid.pdf")
+
+    if THICKNESS:
+        fig4 = make_thickness_figure(EPS_FIXED)
+        if SAVE:
+            fig4.savefig(f"{OUTSTEM}_thickness.png")
+            fig4.savefig(f"{OUTSTEM}_thickness.pdf")
 
     plt.show()
 
