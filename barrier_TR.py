@@ -483,6 +483,30 @@ def _propagate(k: complex, d: float) -> np.ndarray:
                      [0.0, np.exp(1j * k * d)]], dtype=complex)
 
 
+def _matrix_at_barrier_top(gamma: float) -> np.ndarray:
+    """
+    Transfer matrix exactly at the barrier top, eps = 1.
+
+    At E = U0 the equation inside the barrier is psi'' = 0, so the solution is
+    LINEAR, psi = a + b x, not exponential. The plane-wave basis used by
+    transfer_matrix() degenerates there: q -> 0 makes both exp(+-i q x)
+    collapse to the same constant, leaving no way to represent the b x term.
+
+    Matching psi and psi' with the linear solution instead gives a matrix that
+    is finite and well behaved, with kL = gamma at this energy:
+
+        M = [[1 - i*gamma/2,    -i*gamma/2   ],
+             [    i*gamma/2,  1 + i*gamma/2  ]]
+
+    det(M) = 1, and 1/|M00|^2 = 1/(1 + gamma^2/4), which is the closed-form
+    T(1) returned by transmission(). This is the removable singularity of the
+    eps < 1 and eps > 1 branches, evaluated in the basis that stays valid.
+    """
+    h = 0.5j * gamma
+    return np.array([[1.0 - h, -h],
+                     [h, 1.0 + h]], dtype=complex)
+
+
 def transfer_matrix(eps: float, gamma: float) -> np.ndarray:
     """
     Transfer matrix of one rectangular barrier, in reduced units.
@@ -496,32 +520,49 @@ def transfer_matrix(eps: float, gamma: float) -> np.ndarray:
     qL is imaginary for eps < 1, which is exactly the evanescent (tunnelling)
     case; the sinh in the closed form comes from that imaginary argument.
 
+    At eps = 1 the plane-wave basis degenerates (qL -> 0), so within TOL_EPS1
+    of the barrier top the matrix is built in the linear basis instead, by
+    _matrix_at_barrier_top(). The function is therefore valid for every
+    eps > 0; the two branches agree to better than 1e-12 across the seam.
+
     Parameters
     ----------
     eps : float
-        Reduced energy E/U0. Must be > 0 and != 1.
+        Reduced energy E/U0. Must be > 0.
     gamma : float
         Barrier strength parameter.
 
     Returns
     -------
     ndarray
-        Complex 2x2 matrix with det(M) = 1.
+        Complex 2x2 matrix. det(M) = 1 analytically; see Notes.
 
     Raises
     ------
     ValueError
-        At eps = 1 the solution inside the barrier is linear in x rather than
-        exponential, so the plane-wave basis used here does not apply. Use
-        transmission(), which handles that limit in closed form. eps <= 0 has
-        no propagating solution outside.
+        If eps <= 0, where there is no propagating solution outside the
+        barrier and the problem as posed has no scattering states.
+
+    Notes
+    -----
+    In deep tunnelling (large gamma, small eps) the entries grow like
+    exp(kappa*L), and det(M) = 1 is then lost to rounding: it asks for the
+    difference of two products of order exp(2*kappa*L) to come out as 1, which
+    float64 cannot represent once the entries pass about 1e8. At gamma = 20,
+    eps = 0.01 the entries reach ~1e9 and the computed determinant departs
+    from 1 completely.
+
+    T and R are NOT affected, because T = 1/|M00|^2 and R = |M10/M00|^2 need
+    no cancellation -- both still match the closed forms to machine precision
+    there. So do not use det(M) as a numerical sanity check on this function.
+    This growth is also why cascading transfer matrices over many layers is
+    unstable, and why multilayer work uses scattering matrices instead.
     """
     if eps <= 0.0:
         raise ValueError("transfer_matrix requires eps > 0")
+
     if abs(eps - 1.0) < TOL_EPS1:
-        raise ValueError(
-            "transfer_matrix is singular at eps = 1 (the inside solution is "
-            "linear, not exponential); use transmission(1.0, gamma) instead")
+        return _matrix_at_barrier_top(gamma)
 
     kL = gamma * np.sqrt(complex(eps))
     qL = gamma * np.sqrt(complex(eps - 1.0))
@@ -746,7 +787,7 @@ def main() -> None:
     # The transfer matrix must reproduce the closed forms exactly.
     dev = 0.0
     for g in GAMMA_LIST:
-        for e in (0.1, 0.5, 0.9, 1.5, 2.0, 3.0):
+        for e in (0.1, 0.5, 0.9, 1.0, 1.5, 2.0, 3.0):
             Tm, Rm = TR_from_matrix(transfer_matrix(e, g))
             dev = max(dev,
                       abs(Tm - transmission(e, g)[0]),

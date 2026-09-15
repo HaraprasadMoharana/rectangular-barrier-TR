@@ -218,9 +218,13 @@ checks the two routes against each other on every run:
 transfer-matrix check:  max |matrix - closed form|  =  5.551e-16
 ```
 
-Note that `transfer_matrix` raises at $\varepsilon = 1$: the solution inside the
-barrier is linear in $x$ there rather than exponential, so the plane-wave basis
-used here does not apply. `transmission()` handles that limit in closed form.
+At $\varepsilon = 1$ the plane-wave basis degenerates: $q \to 0$ makes both
+$e^{\pm iqx}$ collapse to the same constant, and the solution inside the barrier
+is linear in $x$ rather than exponential, since $\psi'' = 0$ when $E = U_0$.
+Rather than fail there, `transfer_matrix` switches to the linear basis, which
+gives a finite matrix with $\det M = 1$ and $1/|M_{11}|^2 = (1 + \gamma^2/4)^{-1}$
+— the same $T(1)$ the closed form returns. The singularity is in the choice of
+basis, not in the physics, so the function is valid for every $\varepsilon > 0$.
 
 ---
 
