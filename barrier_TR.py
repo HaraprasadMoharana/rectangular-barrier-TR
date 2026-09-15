@@ -10,6 +10,8 @@ parameters.
 
 Run with:      python barrier_TR.py
 Requires:      numpy, matplotlib
+Author:        Haraprasad Moharana (@HaraprasadMoharana)
+License:       MIT
 
 
 -------------------------------------------------------------------------
@@ -191,6 +193,9 @@ energies. Larger gamma -> more resonances inside a given energy window.
 """
 
 from __future__ import annotations
+
+__author__  = "Haraprasad Moharana (@HaraprasadMoharana)"
+__license__ = "MIT"
 
 import numpy as np
 import matplotlib as mpl

@@ -255,6 +255,12 @@ Python 3.8 or newer, NumPy, Matplotlib. See `requirements.txt`.
 
 ---
 
+## Author
+
+Haraprasad Moharana &nbsp;·&nbsp; [@HaraprasadMoharana](https://github.com/HaraprasadMoharana)
+
+---
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
