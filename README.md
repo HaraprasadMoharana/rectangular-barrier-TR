@@ -103,7 +103,7 @@ resonance. Larger $\gamma$ packs more resonances into a given energy window.
 
 ## Results
 
-Both figures are produced by `barrier_TR.py` and committed under `figures/`.
+All three figures are produced by `barrier_TR.py` and committed under `figures/`.
 
 ### Transmission and reflection versus energy
 
