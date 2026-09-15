@@ -163,6 +163,67 @@ rather than an identity by construction.
 
 ---
 
+## Relation to the transfer-matrix method
+
+The closed forms above are what you get by multiplying three matrices together
+and reading off two entries. That second route is worth knowing, because it is
+the one that generalises.
+
+Write the wavefunction in each region of constant potential as a forward and a
+backward wave, $\psi(x) = A e^{ikx} + B e^{-ikx}$. The transfer matrix $M$ is
+whatever carries the amplitude pair across the structure:
+
+```math
+\begin{pmatrix} A_\text{left} \\ B_\text{left} \end{pmatrix}
+= M \begin{pmatrix} A_\text{right} \\ B_\text{right} \end{pmatrix}
+```
+
+For one barrier it factorises into three physical steps — step in, cross, step
+out — with the interface matrix following from continuity of $\psi$ and $\psi'$:
+
+```math
+M = I_{k \to q}\; P(q, L)\; I_{q \to k},
+\qquad
+I_{1 \to 2} = \frac{1}{2}\begin{pmatrix} 1 + k_1/k_2 & 1 - k_1/k_2 \\ 1 - k_1/k_2 & 1 + k_1/k_2 \end{pmatrix},
+\qquad
+P(k, d) = \begin{pmatrix} e^{-ikd} & 0 \\ 0 & e^{ikd} \end{pmatrix}
+```
+
+Inside the barrier $q = \sqrt{2m(E - U_0)}/\hbar$, which is imaginary when
+$E < U_0$. That imaginary argument is where the $\sinh$ in the tunnelling
+formula comes from.
+
+Setting $B_\text{right} = 0$ — nothing incident from the right — gives the
+amplitudes directly from the entries of $M$:
+
+$$t = \frac{1}{M_{11}}, \qquad r = \frac{M_{21}}{M_{11}} \qquad\Longrightarrow\qquad T = \frac{1}{|M_{11}|^2}, \qquad R = \left|\frac{M_{21}}{M_{11}}\right|^2$$
+
+So $T$ and $R$ are not separate physics from the transfer matrix — they are two
+of its entries, and $\det M = 1$ is the same statement as $T + R = 1$.
+
+**Why bother, for a single barrier?** You would not. The point is that transfer
+matrices for adjacent regions simply multiply, $M = M_1 M_2 \cdots M_N$, so the
+same machinery handles a double barrier (a resonant tunnelling structure) or an
+N-period superlattice, where matching boundary conditions by hand stops being
+practical. The optical case is formally identical: for TE waves in a stratified
+medium the Helmholtz equation is the same ODE with $U(x) \leftrightarrow -n^2(x)$,
+which is why the same algebra gives Bragg mirror stopbands and anti-reflection
+coating conditions. The over-barrier resonance $k'L = n\pi$ above is exactly the
+half-wave AR condition.
+
+`transfer_matrix(eps, gamma)` and `TR_from_matrix(M)` implement this. The script
+checks the two routes against each other on every run:
+
+```
+transfer-matrix check:  max |matrix - closed form|  =  5.551e-16
+```
+
+Note that `transfer_matrix` raises at $\varepsilon = 1$: the solution inside the
+barrier is linear in $x$ there rather than exponential, so the plane-wave basis
+used here does not apply. `transmission()` handles that limit in closed form.
+
+---
+
 ## Symbols
 
 | Symbol | Meaning | Units |

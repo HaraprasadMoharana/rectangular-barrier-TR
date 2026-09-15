@@ -449,6 +449,107 @@ def penetration_depth_nm(U0_eV: float, m_rel: float = 1.0) -> float:
     return 1.0e9 * HBAR / np.sqrt(2.0 * m * U0_eV * QE)
 
 
+# ========================== TRANSFER MATRIX ===============================
+#
+# The closed forms above are what you get by multiplying the three matrices
+# below and reading off two of the entries. This section provides that second,
+# equivalent route -- useful because transfer matrices for adjacent regions
+# simply multiply, so the same machinery extends to double barriers and
+# superlattices, where hand-matching boundary conditions is impractical.
+#
+# Convention:  psi(x) = A exp(ikx) + B exp(-ikx) in each region of constant
+# potential, and M carries the amplitude pair across the structure:
+#
+#       ( A_left  )         ( A_right )
+#       (         )  =  M   (         )
+#       ( B_left  )         ( B_right )
+
+
+def _interface(k1: complex, k2: complex) -> np.ndarray:
+    """
+    Transfer matrix for a step from a region of wavenumber k1 into one of k2.
+
+    Obtained from continuity of psi and psi' at the step. Singular as k2 -> 0,
+    which is why transfer_matrix() excludes eps = 0 and eps = 1.
+    """
+    r = k1 / k2
+    return 0.5 * np.array([[1.0 + r, 1.0 - r],
+                           [1.0 - r, 1.0 + r]], dtype=complex)
+
+
+def _propagate(k: complex, d: float) -> np.ndarray:
+    """Transfer matrix for free propagation a distance d at wavenumber k."""
+    return np.array([[np.exp(-1j * k * d), 0.0],
+                     [0.0, np.exp(1j * k * d)]], dtype=complex)
+
+
+def transfer_matrix(eps: float, gamma: float) -> np.ndarray:
+    """
+    Transfer matrix of one rectangular barrier, in reduced units.
+
+    Built as  interface -> propagate -> interface. Lengths are measured in
+    units of the barrier width L, so the dimensionless wavenumbers are
+
+        outside:  kL = gamma*sqrt(eps)
+        inside :  qL = gamma*sqrt(eps - 1)
+
+    qL is imaginary for eps < 1, which is exactly the evanescent (tunnelling)
+    case; the sinh in the closed form comes from that imaginary argument.
+
+    Parameters
+    ----------
+    eps : float
+        Reduced energy E/U0. Must be > 0 and != 1.
+    gamma : float
+        Barrier strength parameter.
+
+    Returns
+    -------
+    ndarray
+        Complex 2x2 matrix with det(M) = 1.
+
+    Raises
+    ------
+    ValueError
+        At eps = 1 the solution inside the barrier is linear in x rather than
+        exponential, so the plane-wave basis used here does not apply. Use
+        transmission(), which handles that limit in closed form. eps <= 0 has
+        no propagating solution outside.
+    """
+    if eps <= 0.0:
+        raise ValueError("transfer_matrix requires eps > 0")
+    if abs(eps - 1.0) < TOL_EPS1:
+        raise ValueError(
+            "transfer_matrix is singular at eps = 1 (the inside solution is "
+            "linear, not exponential); use transmission(1.0, gamma) instead")
+
+    kL = gamma * np.sqrt(complex(eps))
+    qL = gamma * np.sqrt(complex(eps - 1.0))
+    return _interface(kL, qL) @ _propagate(qL, 1.0) @ _interface(qL, kL)
+
+
+def TR_from_matrix(M: np.ndarray) -> tuple:
+    """
+    Transmission and reflection probabilities read off a transfer matrix.
+
+    Setting B_right = 0 (nothing incident from the right) gives
+    t = 1/M[0,0] and r = M[1,0]/M[0,0], hence
+
+        T = 1 / |M00|^2          R = |M10 / M00|^2
+
+    So T and R are not separate physics from the transfer matrix -- they are
+    two of its entries. det(M) = 1 is equivalent to T + R = 1.
+
+    Returns
+    -------
+    (float, float)
+        (T, R).
+    """
+    t = 1.0 / M[0, 0]
+    r = M[1, 0] / M[0, 0]
+    return abs(t) ** 2, abs(r) ** 2
+
+
 # ============================== PLOTTING ==================================
 
 def make_main_figure(eps: np.ndarray, gammas, mark_res: bool = True):
@@ -641,6 +742,16 @@ def main() -> None:
         dev = np.max(np.abs(transmission(eps, g) + reflection(eps, g) - 1.0))
         worst = max(worst, dev)
     print(f"unitarity check:  max |T + R - 1|  =  {worst:.3e}")
+
+    # The transfer matrix must reproduce the closed forms exactly.
+    dev = 0.0
+    for g in GAMMA_LIST:
+        for e in (0.1, 0.5, 0.9, 1.5, 2.0, 3.0):
+            Tm, Rm = TR_from_matrix(transfer_matrix(e, g))
+            dev = max(dev,
+                      abs(Tm - transmission(e, g)[0]),
+                      abs(Rm - reflection(e, g)[0]))
+    print(f"transfer-matrix check:  max |matrix - closed form|  =  {dev:.3e}")
 
     fig1 = make_main_figure(eps, GAMMA_LIST, mark_res=MARK_RES)
     if SAVE:
