@@ -133,20 +133,34 @@ number of half wavelengths fits inside, the reflections off the two edges cancel
 and the barrier goes transparent. This is the anti-reflection coating condition,
 and it is far easier to read here than on the energy axis.
 
-### Why the two figures run opposite ways
+### Transmission and reflection versus barrier strength
 
-They look inverted, and that is expected — the abscissas point in opposite physical
-directions:
+![Transmission and reflection versus barrier strength](figures/fig3_T_R_vs_strength.png)
+
+The third cut: energy fixed *below* the barrier top at $\varepsilon = 0.5$, barrier
+strength sweeping. $T$ falls from 1 and $R$ rises from 0, crossing at
+$\gamma \approx 1.25$ — the barrier width at which a particle is equally likely to
+tunnel through as to bounce back. Past that the fall is exponential: by
+$\gamma = 10$ transmission is down to $3 \times 10^{-6}$, which is what makes
+tunnelling a short-range effect.
+
+### Why the figures run different ways
+
+The first figure rises where the other two fall, and that is expected — the
+abscissas point in opposite physical directions:
 
 | | swept quantity | $T$ at the left edge | reason |
 |---|---|---|---|
 | versus energy | $\varepsilon = E/U_0$ | $T \to 0$ | a particle with no energy gets through nothing |
 | versus thickness | $k'L$ | $T \to 1$ | a barrier with no width blocks nothing |
+| versus strength | $\gamma = L/\delta$ | $T \to 1$ | the same reason, in the tunnelling regime |
 
-Both come from the same closed form. `transmission_vs_thickness(u, eps)` and
+All three come from the same closed form. `transmission_vs_thickness(u, eps)` and
 `transmission(eps, gamma)` agree to 12 decimal places wherever
-$u = \gamma\sqrt{|1-\varepsilon|}$ makes them describe the same barrier — they are two cuts
-through one surface $T(\varepsilon, \gamma)$, not two different results.
+$u = \gamma\sqrt{|1-\varepsilon|}$ makes them describe the same barrier. They are three cuts
+through one surface $T(\varepsilon, \gamma)$, not three different results: where any two
+cuts intersect they return the same number, so at $\varepsilon = 0.5$, $\gamma = 5$ both
+the first and the third figure give $T = 0.003392$.
 
 ### Numerical check
 
@@ -266,6 +280,7 @@ $\max|T + R - 1|$, and writes the figures.
 |---|---|
 | `barrier_TR_overlaid.png` / `.pdf` | $T$ and $R$ overlaid against energy for one $\gamma$ — the first figure above |
 | `barrier_TR_thickness.png` / `.pdf` | $T$ and $R$ against barrier thickness at fixed energy — the second figure above |
+| `barrier_TR_strength.png` / `.pdf` | $T$ and $R$ against barrier strength at a tunnelling energy — the third figure above |
 | `barrier_TR_vs_eps.png` / `.pdf` | two-panel $T(\varepsilon)$ and $R(\varepsilon)$ across the full $\gamma$ family |
 | `barrier_TR_log.png` / `.pdf` | $T$ on a log axis over the tunnelling region, exposing the $e^{-2\gamma\sqrt{1-\varepsilon}}$ law |
 
@@ -283,6 +298,7 @@ Edit the `CONFIG` block at the top of `barrier_TR.py`:
 | `LOG_PANEL` | produce the log-scale tunnelling figure |
 | `OVERLAY`, `GAMMA_SHOW` | produce the overlaid $T$/$R$ figure, and at which $\gamma$ |
 | `THICKNESS`, `EPS_FIXED` | produce the thickness figure, and at which $\varepsilon > 1$ |
+| `STRENGTH`, `EPS_TUNNEL`, `GAMMA_MAX` | produce the strength figure, at which $\varepsilon < 1$, and how far in $\gamma$ |
 | `MARK_RES` | mark over-barrier resonances |
 | `SHOW_DEFS` | print the symbol table on run |
 | `SAVE`, `OUTSTEM`, `DPI` | figure output |

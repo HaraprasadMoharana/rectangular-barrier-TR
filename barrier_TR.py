@@ -212,10 +212,13 @@ N_EPS      = 6001                          # number of energy grid points
 LOG_PANEL  = True        # also produce a log-scale T plot of the tunnelling region
 OVERLAY    = True        # T and R overlaid on one axes, single gamma
 THICKNESS  = True        # T and R against barrier thickness at fixed energy
+STRENGTH   = True        # T and R against barrier strength at fixed energy
 MARK_RES   = True        # mark the over-barrier resonances on panel (a)
 
 GAMMA_SHOW = 5.0         # gamma used by the overlaid figure
 EPS_FIXED  = 1.5         # reduced energy used by the thickness figure (eps > 1)
+EPS_TUNNEL = 0.5         # reduced energy used by the strength figure  (eps < 1)
+GAMMA_MAX  = 10.0        # largest barrier strength on the strength figure
 SHOW_DEFS  = True        # print the symbol table when the script is run
 SAVE       = True        # write PNG + PDF next to the script
 OUTSTEM    = "barrier_TR"
@@ -768,6 +771,60 @@ def make_thickness_figure(eps0: float = EPS_FIXED, n_periods: int = 4):
     return fig
 
 
+def make_strength_figure(eps0: float = EPS_TUNNEL, gamma_max: float = GAMMA_MAX):
+    """
+    T and R against barrier STRENGTH at fixed energy below the barrier top.
+
+    This is the third cut through the surface T(eps, gamma):
+
+        make_overlaid_figure   fixes the barrier, sweeps the energy
+        make_thickness_figure  fixes an over-barrier energy, sweeps the width
+        make_strength_figure   fixes a tunnelling energy, sweeps the barrier
+
+    T falls from 1 at gamma = 0 (a barrier of no width blocks nothing) and R
+    rises from 0, the two crossing where tunnelling through and bouncing back
+    are equally likely. Past that the fall is exponential, which is what makes
+    tunnelling a short-range effect.
+
+    Raises
+    ------
+    ValueError
+        If eps0 >= 1. Above the barrier top T oscillates with gamma rather than
+        decaying, so the monotonic reading of this figure would not hold; use
+        make_thickness_figure() for that regime.
+    """
+    if eps0 >= 1.0:
+        raise ValueError("make_strength_figure expects eps0 < 1 (tunnelling)")
+
+    g = np.linspace(1.0e-6, gamma_max, 3000)
+    T = np.array([transmission(eps0, gg)[0] for gg in g])
+    R = np.array([reflection(eps0, gg)[0] for gg in g])
+
+    fig, ax = plt.subplots(figsize=(5.4, 3.4))
+    ax.plot(g, T, color=C_T, lw=1.9)
+    ax.plot(g, R, color=C_R, lw=1.9)
+    ax.axhline(1.0, color="0.7", lw=0.8, ls=(0, (4, 3)), zorder=0)
+
+    # mark where T and R cross
+    xc = g[np.argmin(np.abs(T - R))]
+    ax.plot(xc, 0.5, marker="o", ms=4, mfc="white", mec="0.35", mew=1.1, zorder=5)
+
+    ax.text(0.70 * gamma_max, 0.30, "$T$", color=C_T, fontsize=13,
+            fontweight="bold", ha="center")
+    ax.text(0.70 * gamma_max, 0.82, "$R$", color=C_R, fontsize=13,
+            fontweight="bold", ha="center")
+
+    ax.set_xlim(0.0, gamma_max)
+    ax.set_ylim(-0.02, 1.06)
+    ax.set_xlabel(r"Barrier strength  $\gamma = L/\delta$")
+    ax.set_ylabel("Probability")
+    ax.set_title(rf"$\varepsilon = {eps0:g}$   (tunnelling, $E < U_0$)",
+                 fontsize=10, pad=18)
+    _strip(ax)
+    fig.tight_layout()
+    return fig
+
+
 # =============================== MAIN =====================================
 
 def main() -> None:
@@ -816,6 +873,12 @@ def main() -> None:
         if SAVE:
             fig4.savefig(f"{OUTSTEM}_thickness.png")
             fig4.savefig(f"{OUTSTEM}_thickness.pdf")
+
+    if STRENGTH:
+        fig5 = make_strength_figure(EPS_TUNNEL)
+        if SAVE:
+            fig5.savefig(f"{OUTSTEM}_strength.png")
+            fig5.savefig(f"{OUTSTEM}_strength.pdf")
 
     plt.show()
 
